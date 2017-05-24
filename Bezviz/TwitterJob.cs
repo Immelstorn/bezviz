@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
-
+using System.Linq.Expressions;
 using LinqToTwitter;
 
 using Quartz;
@@ -11,7 +11,7 @@ namespace Bezviz
 {
     public class TwitterJob : IJob
     {
-
+        private const string Yes = "Да.";
         private static readonly Dictionary<string, int> AnswersDict = new Dictionary<string, int> {
                         { "Нет", 2 },
                         { "Еще нет", 2 },
@@ -82,31 +82,39 @@ namespace Bezviz
         {
             try
             {
-                var answers = new List<string>();
-                foreach(var item in AnswersDict)
-                {
-                    for(var i = 0; i < item.Value; i++)
-                    {
-                        answers.Add(item.Key);
-                    }
-                }
-
                 var twitterCtx = new TwitterContext(Auth);
-                var weekstatuses = twitterCtx.Status
-                        .Where(s => s.Type == StatusType.User
-                                   && s.ScreenName == "visafreealready"
-                                   && s.CreatedAt > DateTime.Now.AddDays(-14)).Select(s => s.Text)
-                        .Distinct().ToList();
-
-                int answerNumber;
-                do
+                var answer = Yes;
+                if(DateTime.Now < new DateTime(2017, 06, 11))
                 {
-                    answerNumber = Random.Next(answers.Count - 1);
-                    Console.WriteLine("answer: {0}", answers[answerNumber]);
-                }
-                while(weekstatuses.Contains(answers[answerNumber]));
+                    var answers = new List<string>();
+                    foreach(var item in AnswersDict)
+                    {
+                        for(var i = 0; i < item.Value; i++)
+                        {
+                            answers.Add(item.Key);
+                        }
+                    }
 
-                var tweet = twitterCtx.TweetAsync(answers[answerNumber]).Result;
+                    var weekstatuses = twitterCtx.Status.Where(
+                                                               s => s.Type == StatusType.User
+                                                                   && s.ScreenName == "visafreealready"
+                                                                   && s.CreatedAt > DateTime.Now.AddDays(-14)).
+                            Select(s => s.Text).
+                            Distinct().
+                            ToList();
+
+                    int answerNumber;
+                    do
+                    {
+                        answerNumber = Random.Next(answers.Count - 1);
+                        Console.WriteLine("answer: {0}", answers[answerNumber]);
+                    }
+                    while(weekstatuses.Contains(answers[answerNumber]));
+
+                    answer = answers[answerNumber];
+                }
+
+                var tweet = twitterCtx.TweetAsync(answer).Result;
                 Console.WriteLine(tweet == null ? "an error occured, tweet is null" : string.Format("tweet.StatusID: {0}", tweet.StatusID));
             }
             catch(Exception e)
